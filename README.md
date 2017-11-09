@@ -33,3 +33,14 @@
 #配置文件config
 
   如果哪天前端服务器的密码被别人知道了，或者网站有重大漏洞，被别人看到config.py文件，他岂不是知道所有数据库和redis的信息？那怎么做呢？其实也很简单，直接引用config.pyc文件即可，上传正式服务器的时候，把config.py文件给移除出去。
+
+
+##
+flask开发restful api系列(8)-再谈项目结构
+flask开发restful api系列(7)-蓝图bulepoint管理api版本
+flask开发restful api系列(6)-整理配置到config
+flask开发restful api系列(5)-短信验证码
+flask开发restful api系列(4)--七牛图片服务
+flask开发restful api系列(3)--利用alembic进行数据库更改
+flask开发restful api系列(2)
+flask开发restful api系列(1)
