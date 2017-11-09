@@ -25,6 +25,7 @@ class User(Base):
     phone_number = Column('phone_number', String(11), index=True)
     password = Column('password', String(30))
     nickname = Column('nickname', String(30), index=True, nullable=True)
+    head_picture = Column('head_picture', String(120), default='')
     register_time = Column('register_time', DateTime, index=True, default=datetime.datetime.now)
 
 
