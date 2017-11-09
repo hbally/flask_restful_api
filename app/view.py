@@ -13,16 +13,24 @@ import requests
 import json
 import base64
 from random import random
-
-# qiniu key
-access_key = 'nkZdP9QwpdAeJxU-muIzpEUrWVZhGPsCG8WjwQCe'
-secret_key = 'XYFyGSSTIIDi6ZCiydNSK4CZPWN6ocOPH9TWVWjH'
-q = Auth(access_key=access_key, secret_key=secret_key)
-bucket_name = 'hbally'
+from config import Conf
 
 app = Flask(__name__)
-# redis服务器缓存
-redis_store = redis.Redis(host='localhost', port=6379, db=4, password='123456')
+app.config.from_object(Conf)
+
+app.secret_key = app.config['SECRET_KEY']
+app.redis = redis.Redis(host=app.config['REDIS_HOST'], port=app.config['REDIS_PORT'],
+                        db=app.config['REDIS_DB'], password=app.config['REDIS_PASSWORD'])
+app.q = Auth(access_key=app.config['QINIU_ACCESS_KEY'], secret_key=app.config['QINIU_SECRET_KEY'])
+bucket_name = app.config['BUCKET_NAME']
+
+# # redis服务器缓存
+# redis_store = redis.Redis(host='localhost', port=6379, db=4, password='123456')
+# # qiniu key
+# access_key = 'nkZdP9QwpdAeJxU-muIzpEUrWVZhGPsCG8WjwQCe'
+# secret_key = 'XYFyGSSTIIDi6ZCiydNSK4CZPWN6ocOPH9TWVWjH'
+# q = Auth(access_key=access_key, secret_key=secret_key)
+# bucket_name = 'hbally'
 
 
 @app.route('/')
@@ -34,7 +42,7 @@ def hello_world():
 def get_qiniu_token():
     '''七牛云的token获取'''
     key = uuid.uuid4()
-    token = q.upload_token(bucket_name, key, 3600)
+    token = app.q.upload_token(bucket_name, key, 3600)
     return jsonify({'code': 1, 'key': key, 'token': token})
 
 
@@ -44,7 +52,7 @@ def before_request():
        在这里存储在全局变量g中
     '''
     token = request.headers.get('token')
-    phone_number = redis_store.get('token:%s' % token)
+    phone_number = app.redis.get('token:%s' % token)
     if phone_number:
         g.current_user = User.query.filter_by(phone_number=phone_number).first()
         g.token = token
@@ -59,8 +67,8 @@ def login_check(f):
         token = request.headers.get('token')
         if not token:
             return jsonify({'code': 0, 'message': '需要验证'})
-        phone_number = redis_store.get('token:%s' % token)
-        if not phone_number or token != redis_store.hget('user:%s' % phone_number, 'token'):
+        phone_number = app.redis.get('token:%s' % token)
+        if not phone_number or token != app.redis.hget('user:%s' % phone_number, 'token'):
             return jsonify({'code': 2, 'message': '验证信息错误'})
         return f(*args, **kwargs)
 
@@ -80,7 +88,7 @@ def set_head_picture():
         print e
         db_session.rollback()
         return jsonify({'code': 0, 'message': '未能成功上传'})
-    redis_store.hset('user:%s' % user.phone_number, 'head_picture', head_picture)
+        app.redis.hset('user:%s' % user.phone_number, 'head_picture', head_picture)
     return jsonify({'code': 1, 'message': '成功上传'})
 
 
@@ -107,7 +115,7 @@ def login():
     # redis_store.set('token:%s' % token, user.phone_number)
     # redis_store.expire('token:%s' % token, 3600 * 24 * 30)
 
-    pipeline = redis_store.pipeline()
+    pipeline = app.redis.pipeline()
     # 执行redis时改用pipeline管道执行,防止执行到一半终止
     pipeline.hmset('user:%s' % user.phone_number, {'token': token, 'nickname': user.nickname, 'app_online': 1})
     pipeline.set('token:%s' % token, user.phone_number)
@@ -126,7 +134,7 @@ def user():
     # 不用通过上面redis代码中获取,在@app.before_request中已经有了存储
     user = g.current_user
     # 在redis中获取用户信息
-    nickname = redis_store.hget('user:%s' % user.phone_number, 'nickname')
+    nickname = app.redis.hget('user:%s' % user.phone_number, 'nickname')
     return jsonify(
         {'code': 1, 'nickname': nickname, 'phone_number': user.phone_number, 'head_picture': user.head_picture})
 
@@ -136,7 +144,7 @@ def user():
 def logout():
     user = g.current_user
     # 执行redis时改用pipeline管道执行,防止执行到一半终止
-    pipeline = redis_store.pipeline()
+    pipeline = app.redis.pipeline()
     pipeline.delete('token:%s' % g.token)
     pipeline.hmset('user:%s' % user.phone_number, {'app_online': 0})
     pipeline.execute()
@@ -192,7 +200,7 @@ def register_step_1():
     if not result:
         return jsonify({'code': 0, 'message': err_message})
 
-    pipeline = redis_store.pipeline()
+    pipeline = app.redis.pipeline()
     pipeline.set('validate:%s' % phone_number, validate_number)
     pipeline.expire('validate:%s' % phone_number, 60)
     pipeline.execute()
@@ -207,14 +215,14 @@ def register_step_2():
     """
     phone_number = request.get_json().get('phone_number')
     validate_number = request.get_json().get('validate_number')
-    validate_number_in_redis = redis_store.get('validate:%s' % phone_number)
+    validate_number_in_redis = app.redis.get('validate:%s' % phone_number)
 
     if validate_number != validate_number_in_redis:
         return jsonify({'code': 0, 'message': '验证没有通过'})
 
-    pipe_line = redis_store.pipeline()
-    pipe_line.set('is_validate:%s' % phone_number, '1')#添加次数
-    pipe_line.expire('is_validate:%s' % phone_number, 120)#添加有效期执行的有效时间
+    pipe_line = app.redis.pipeline()
+    pipe_line.set('is_validate:%s' % phone_number, '1')  # 添加次数
+    pipe_line.expire('is_validate:%s' % phone_number, 120)  # 添加有效期执行的有效时间
     pipe_line.execute()
 
     return jsonify({'code': 1, 'message': '短信验证通过'})
@@ -236,12 +244,12 @@ def register_step_3():
     if password != password_confirm:
         return jsonify({'code': 0, 'message': '密码和密码确认不一致'})
 
-    is_validate = redis_store.get('is_validate:%s' % phone_number)
+    is_validate = app.redis.get('is_validate:%s' % phone_number)
 
     if is_validate != '1':
         return jsonify({'code': 0, 'message': '验证码没有通过'})
 
-    pipeline = redis_store.pipeline()
+    pipeline = app.redis.pipeline()
     pipeline.hset('register:%s' % phone_number, 'password', password)
     pipeline.expire('register:%s' % phone_number, 120)
     pipeline.execute()
@@ -257,12 +265,12 @@ def register_step_4():
     phone_number = request.get_json().get('phone_number')
     nickname = request.get_json().get('nickname')
 
-    is_validate = redis_store.get('is_validate:%s' % phone_number)
+    is_validate = app.redis.get('is_validate:%s' % phone_number)
 
     if is_validate != '1':
         return jsonify({'code': 0, 'message': '验证码没有通过'})
 
-    password = redis_store.hget('register:%s' % phone_number, 'password')
+    password = app.redis.hget('register:%s' % phone_number, 'password')
 
     new_user = User(phone_number=phone_number, password=password, nickname=nickname)
     db_session.add(new_user)
@@ -274,8 +282,8 @@ def register_step_4():
         db_session.rollback()
         return jsonify({'code': 0, 'message': '注册失败'})
     finally:
-        redis_store.delete('is_validate:%s' % phone_number)
-        redis_store.delete('register:%s' % phone_number)
+        app.redis.delete('is_validate:%s' % phone_number)
+        app.redis.delete('register:%s' % phone_number)
 
     return jsonify({'code': 1, 'message': '注册成功'})
 
@@ -291,4 +299,5 @@ def handle_teardown_request(exception):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    # app.run(debug=True, host='0.0.0.0', port=5001)
+    app.run(debug=app.config['DEBUG'], host='0.0.0.0', port=5001)

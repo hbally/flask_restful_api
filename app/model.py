@@ -6,9 +6,10 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
 from sqlalchemy.orm.collections import attribute_mapped_collection
 import datetime
+from config import Conf
 
-engine = create_engine("mysql://root:123456@127.0.0.1:3306/blog01?charset=utf8", pool_recycle=7200)
-
+# engine = create_engine("mysql://root:123456@127.0.0.1:3306/blog01?charset=utf8", pool_recycle=7200)
+engine = create_engine(Conf.MYSQL_INFO, pool_recycle=7200)
 Base = declarative_base()
 
 db_session = scoped_session(sessionmaker(autocommit=False,
