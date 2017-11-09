@@ -62,6 +62,38 @@ class APITest(object):
         print response_data.get('message')
         return response_data
 
+    def register_step_1(self, phone_number, path='/register-step-1'):
+        payload = {'phone_number': phone_number}
+        self.headers = {'content-type': 'application/json'}
+        response = requests.post(url=self.base_url + path, data=json.dumps(payload), headers=self.headers)
+        response_data = json.loads(response.content)
+        print response_data.get('code')
+        return response_data
+
+    def register_step_2(self, phone_number, validate_number, path='/register-step-2'):
+        payload = {'phone_number': phone_number, 'validate_number': validate_number}
+        self.headers = {'content-type': 'application/json'}
+        response = requests.post(url=self.base_url + path, data=json.dumps(payload), headers=self.headers)
+        response_data = json.loads(response.content)
+        print response_data.get('code')
+        return response_data
+
+    def register_step_3(self, phone_number, password, password_confirm, path='/register-step-3'):
+        payload = {'phone_number': phone_number, 'password': password, 'password_confirm': password_confirm}
+        self.headers = {'content-type': 'application/json'}
+        response = requests.post(url=self.base_url + path, data=json.dumps(payload), headers=self.headers)
+        response_data = json.loads(response.content)
+        print response_data.get('code')
+        return response_data
+
+    def register_step_4(self, phone_number, nickname, path='/register-step-4'):
+        payload = {'phone_number': phone_number, 'nickname': nickname}
+        self.headers = {'content-type': 'application/json'}
+        response = requests.post(url=self.base_url + path, data=json.dumps(payload), headers=self.headers)
+        response_data = json.loads(response.content)
+        print response_data.get('code')
+        return response_data
+
 
 if __name__ == '__main__':
     # 登陆获取token
