@@ -5,6 +5,15 @@ import hashlib
 import time
 import redis
 from functools import wraps
+import uuid
+from qiniu import Auth, put_file, etag, urlsafe_base64_encode
+
+#qiniu key
+access_key = 'nkZdP9QwpdAeJxU-muIzpEUrWVZhGPsCG8WjwQCe'
+secret_key = 'XYFyGSSTIIDi6ZCiydNSK4CZPWN6ocOPH9TWVWjH'
+q = Auth(access_key=access_key, secret_key=secret_key)
+bucket_name = 'hbally'
+
 
 app = Flask(__name__)
 # redis服务器缓存
@@ -14,6 +23,14 @@ redis_store = redis.Redis(host='localhost', port=6379, db=4, password='123456')
 @app.route('/')
 def hello_world():
     return 'Hello World!'
+
+@app.route('/get-qiniu-token')
+def get_qiniu_token():
+    '''七牛云的token获取'''
+    key = uuid.uuid4()
+    token = q.upload_token(bucket_name, key, 3600)
+    return jsonify({'code': 1, 'key': key, 'token': token})
+
 
 @app.before_request
 def before_request():
@@ -43,6 +60,22 @@ def login_check(f):
 
     return decorator
 
+
+@app.route('/set-head-picture', methods=['POST'])
+@login_check
+def set_head_picture():
+    '''给user设置图片'''
+    head_picture = request.get_json().get('head_picture')
+    user = g.current_user
+    user.head_picture = head_picture
+    try:
+        db_session.commit()
+    except Exception as e:
+        print e
+        db_session.rollback()
+        return jsonify({'code': 0, 'message': '未能成功上传'})
+    redis_store.hset('user:%s' % user.phone_number, 'head_picture', head_picture)
+    return jsonify({'code': 1, 'message': '成功上传'})
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -87,7 +120,7 @@ def user():
     user = g.current_user
     # 在redis中获取用户信息
     nickname = redis_store.hget('user:%s' % user.phone_number, 'nickname')
-    return jsonify({'code': 1, 'nickname': nickname, 'phone_number': user.phone_number})
+    return jsonify({'code': 1, 'nickname': nickname, 'phone_number': user.phone_number,'head_picture':user.head_picture})
 
 
 @app.route('/logout')
