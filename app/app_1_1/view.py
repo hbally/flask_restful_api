@@ -17,6 +17,7 @@ from app.config import Conf
 # 引入蓝图
 from . import api
 from flask import current_app
+from app.model import SmallBlog,desc
 
 
 # 改为蓝图后边有好几个需要注意的点。
@@ -94,10 +95,11 @@ def set_head_picture():
         app.redis.hset('user:%s' % user.phone_number, 'head_picture', head_picture)
     return jsonify({'code': 1, 'message': '成功上传'})
 
+
 @api.route('/login', methods=['POST'])
 def login():
     phone_number = request.get_json().get('phone_number')
-    #password = request.get_json().get('password')
+    # password = request.get_json().get('password')
     # 都是把用户名，和 密码 + 随机值 + 时间戳的加密方式传过去
     encryption_str = request.get_json().get('encryption_str')
     # encryption_str就是加密串，是由密码 + 随机值 + 时间戳用sha256加密的
@@ -139,7 +141,6 @@ def login():
     pipeline.execute()
 
     return jsonify({'code': 1, 'message': '成功登录', 'nickname': user.nickname, 'token': token})
-
 
 
 @api.route('/user')
@@ -313,6 +314,55 @@ def handle_teardown_request(exception):
     数据库还是没有更改，或者长时间没有访问接口，mysql gong away，这样的错误。总之，一定要加上。
     '''
     db_session.remove()
+
+
+@api.route('/get-multi-qiniu-token')
+@login_check
+def get_multi_qiniu_token():
+    count = request.args.get('count')
+
+    if not 0 < int(count) < 10:
+        return jsonify({'code': 0, 'message': '一次只能获取1到9个'})
+
+    key_token_s = []
+    for x in range(int(count)):
+        key = uuid.uuid1()
+        token = current_app.q.upload_token(current_app.bucket_name, key, 3600)
+        key_token_s.append((key, token))
+    return jsonify({'code': 1, 'key_token_s': key_token_s})
+
+
+@api.route('/post-blog', methods=['POST'])
+@login_check
+def post_blog():
+    user = g.current_user
+
+    title = request.get_json().get('title')
+    text_content = request.get_json().get('text_content')
+    pictures = request.get_json().get('pictures')
+
+    newblog = SmallBlog(title=title, text_content=text_content, post_user=user)
+
+    newblog.pictures = pictures
+    db_session.add(newblog)
+    try:
+        db_session.commit()
+    except Exception as e:
+        print e
+        db_session.rollback()
+        return jsonify({'code': 0, 'message': '上传不成功'})
+    return jsonify({'code': 1, 'message': '上传成功'})
+
+
+@api.route('/get-blogs')
+@login_check
+def get_blogs():
+    last_id = request.args.get('last_id')
+    if not int(last_id):
+        blogs = db_session.query(SmallBlog).order_by(desc(SmallBlog.id)).limit(10)
+    else:
+        blogs = db_session.query(SmallBlog).filter(SmallBlog.id < int(last_id)).order_by(desc(SmallBlog.id)).limit(10)
+    return jsonify({'code': 1, 'blogs': [blog.to_dict() for blog in blogs]})
 
 # if __name__ == '__main__':
 # app.run(debug=True, host='0.0.0.0', port=5001)

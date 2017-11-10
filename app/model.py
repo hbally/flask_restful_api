@@ -30,11 +30,44 @@ class User(Base):
     register_time = Column('register_time', DateTime, index=True, default=datetime.datetime.now)
 
 
+class SmallBlog(Base):
+    __tablename__ = 'small_blog'
+
+    id = Column('id', Integer, primary_key=True)
+    post_user_id = Column('post_user_id', Integer, ForeignKey(User.id))
+    post_time = Column('post_time', DateTime, default=datetime.datetime.now)
+    title = Column('title', String(30), index=True)
+    text_content = Column('text_content', String(140))
+    picture_content = Column('picture_content', String(900))
+    post_user = relationship('User', backref=backref('small_blogs'))
+
+    @hybrid_property
+    def pictures(self):
+        if not self.picture_content:
+            return []
+        return self.picture_content.split(',')
+
+    @pictures.setter
+    def pictures(self, urls):
+        self.picture_content = ','.join(urls)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'post_user_picture': self.post_user.head_picture,
+            'post_user_name': self.post_user.nickname,
+            'post_time': self.post_time.strftime('%Y-%m-%d %H:%M:%S'),
+            'title': self.title,
+            'text_content': self.text_content,
+            'pictures': self.pictures
+        }
+
+
 if __name__ == '__main__':
     Base.metadata.create_all(engine)
 
 # 插入一条数据到User表
 if __name__ == '__main__':
-    new_user = User(phone_number="13247102980", password="123456", nickname="test1")
+    new_user = User(phone_number="13247102981", password="123456", nickname="test2")
     db_session.add(new_user)
     db_session.commit()

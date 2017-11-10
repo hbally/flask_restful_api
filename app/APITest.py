@@ -98,6 +98,7 @@ class APITest(object):
         print response_data.get('code')
         return response_data
 
+
 class APITest1_1(APITest):
     def login(self, phone_number, password, path='/login'):
         random_str = str(random.randint(10000, 100000))
@@ -114,6 +115,40 @@ class APITest1_1(APITest):
         response = requests.post(url=self.base_url + path, data=json.dumps(payload), headers=self.headers)
         response_data = json.loads(response.content)
         self.token = response_data.get('token')
+        return response_data
+
+    def get_multi_qiniu_token(self, count, path='/get-multi-qiniu-token'):
+        """获取多个七牛的token"""
+        self.headers = {'token': self.token}
+        payload = {'count': count}
+        response = requests.get(url=self.base_url + path, params=payload, headers=self.headers)
+        response_data = json.loads(response.content)
+        key_token_s = response_data.get('key_token_s')
+        return key_token_s
+
+    def post_blog(self, title, text_content, picture_files, path='/post-blog'):
+        """发布帖子里面上传图片和文字"""
+        self.headers = {'token': self.token}
+        count = len(picture_files)
+        key_token_s = self.get_multi_qiniu_token(count=count)
+        pictures = []
+
+        for x in range(count):
+            put_file(key_token_s[x][1], key_token_s[x][0], picture_files[x])  # 上传图片
+            pictures.append(self.qiniu_base_url + key_token_s[x][0])
+
+        payload = {'title': title, 'text_content': text_content, 'pictures': pictures}
+        self.headers = {'content-type': 'application/json', 'token': self.token}
+        response = requests.post(url=self.base_url + path, data=json.dumps(payload), headers=self.headers)
+        response_data = json.loads(response.content)
+        print response_data.get('code')
+        return response_data
+
+    def get_blogs(self, last_id, path='/get-blogs'):
+        self.headers = {'token': self.token}
+        payload = {'last_id': last_id}
+        response = requests.get(url=self.base_url + path, params=payload, headers=self.headers)
+        response_data = json.loads(response.content)
         return response_data
 
 
@@ -141,10 +176,26 @@ def testApi(api):
     # {"message": "\u6210\u529f\u6ce8\u9500", "code": 1}
 
 
+def testpostbolg():
+    api1_1 = APITest1_1('http://127.0.0.1:5001/api/v1100')
+    data = api1_1.login('13247102980', '123456')
+    print json.dumps(data)
+    localfiles = ['./static/rad600-06752062.jpg', './static/rad600-06752558.jpg', './static/rad600-06758166.jpg']
+    # key_token_s = api.get_multi_qiniu_token(4)
+    api1_1.post_blog(title="发个微博到天上", text_content="这个是猴子，还是只石头变得，齐天大圣也...",
+                     picture_files=localfiles)
+    blogs = api1_1.get_blogs(0)
+    print json.dumps(blogs)
+
+    print json.dumps(
+        api1_1.logout())
+
+
 if __name__ == '__main__':
     # 测试版本1.0接口
-    api1_0 = APITest('http://127.0.0.1:5001/api/v1000')
-    testApi(api1_0)
+    # api1_0 = APITest('http://127.0.0.1:5001/api/v1000')
+    # testApi(api1_0)
     # 测试版本1.1接口
-    api1_1 = APITest1_1('http://127.0.0.1:5001/api/v1100')
-    testApi(api1_1)
+    # api1_1 = APITest1_1('http://127.0.0.1:5001/api/v1100')
+    # testApi(api1_1)
+    testpostbolg()
