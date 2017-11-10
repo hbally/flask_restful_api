@@ -63,11 +63,11 @@ class SmallBlog(Base):
         }
 
 
-if __name__ == '__main__':
-    Base.metadata.create_all(engine)
+# if __name__ == '__main__':
+#     Base.metadata.create_all(engine)
 
 # 插入一条数据到User表
 if __name__ == '__main__':
-    new_user = User(phone_number="13247102981", password="123456", nickname="test2")
+    new_user = User(phone_number="13247102982", password="123456", nickname="test3")
     db_session.add(new_user)
     db_session.commit()

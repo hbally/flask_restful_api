@@ -178,11 +178,11 @@ def testApi(api):
 
 def testpostbolg():
     api1_1 = APITest1_1('http://127.0.0.1:5001/api/v1100')
-    data = api1_1.login('13247102980', '123456')
+    data = api1_1.login('13247102982', '123456')
     print json.dumps(data)
     localfiles = ['./static/rad600-06752062.jpg', './static/rad600-06752558.jpg', './static/rad600-06758166.jpg']
     # key_token_s = api.get_multi_qiniu_token(4)
-    api1_1.post_blog(title="发个微博到天上", text_content="这个是猴子，还是只石头变得，齐天大圣也...",
+    api1_1.post_blog(title="今天天气不错", text_content="火星上的虫子不好吃",
                      picture_files=localfiles)
     blogs = api1_1.get_blogs(0)
     print json.dumps(blogs)
