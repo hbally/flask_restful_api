@@ -1,4 +1,8 @@
 # coding:utf-8
+import hashlib
+import time
+import random
+
 import requests
 import json
 from qiniu import put_file
@@ -94,10 +98,30 @@ class APITest(object):
         print response_data.get('code')
         return response_data
 
+class APITest1_1(APITest):
+    def login(self, phone_number, password, path='/login'):
+        random_str = str(random.randint(10000, 100000))
+        time_stamp = str(int(time.time()))
+        s = hashlib.sha256()
+        s.update(password)
+        s.update(random_str)
+        s.update(time_stamp)
+        encryption_str = s.hexdigest()
+        # payload = {'phone_number': phone_number, 'password': password}
+        payload = {'phone_number': phone_number, 'encryption_str': encryption_str, 'random_str': random_str,
+                   'time_stamp': time_stamp}
+        self.headers = {'content-type': 'application/json'}
+        response = requests.post(url=self.base_url + path, data=json.dumps(payload), headers=self.headers)
+        response_data = json.loads(response.content)
+        self.token = response_data.get('token')
+        return response_data
 
-if __name__ == '__main__':
+
+def testApi(api):
     # 登陆获取token
-    api = APITest('http://127.0.0.1:5001')
+    # api = APITest('http://127.0.0.1:5001')
+    # 改为蓝图后http地址变更
+
     data = api.login('13247102980', '123456')
     print json.dumps(data)
     # {"message": "\u6210\u529f\u767b\u5f55", "code": 1, "nickname": "test1", "token": "7f7442fa0ec2b6e84f9ddf3cd0ef1c96"}
@@ -115,3 +139,12 @@ if __name__ == '__main__':
     logoutresult = api.logout()
     print json.dumps(logoutresult)
     # {"message": "\u6210\u529f\u6ce8\u9500", "code": 1}
+
+
+if __name__ == '__main__':
+    # 测试版本1.0接口
+    api1_0 = APITest('http://127.0.0.1:5001/api/v1000')
+    testApi(api1_0)
+    # 测试版本1.1接口
+    api1_1 = APITest1_1('http://127.0.0.1:5001/api/v1100')
+    testApi(api1_1)
